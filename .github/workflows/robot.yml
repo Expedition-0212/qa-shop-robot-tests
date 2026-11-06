@@ -1,0 +1,42 @@
+name: Robot Framework Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Site that hosts the QA Shop practice app'
+        default: 'https://pramodkoli.in/'
+      include_tag:
+        description: 'Run only tests with this tag (e.g. smoke). Leave empty for all.'
+        default: ''
+  schedule:
+    - cron: '0 15 * * 1'   # every Monday, as a weekly health check
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: browser-actions/setup-chrome@v1
+      - run: pip install -r requirements.txt
+      - name: Run tests
+        run: |
+          TAG_ARG=""
+          if [ -n "${{ github.event.inputs.include_tag }}" ]; then TAG_ARG="--include ${{ github.event.inputs.include_tag }}"; fi
+          robot --outputdir results \
+                --variable BASE_URL:${{ github.event.inputs.base_url || 'https://pramodkoli.in/' }} \
+                $TAG_ARG tests
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: robot-results
+          path: results/
+          retention-days: 14
